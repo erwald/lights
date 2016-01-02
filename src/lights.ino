@@ -16,7 +16,9 @@
 #define NUM_LEDS 4
 #define MIC_PIN A5
 
-int pins[NUM_LEDS] = { 2,3,6,7 };
+int pins[NUM_LEDS] = { 2, 3, 6, 7 };
+int lows[NUM_LEDS] = { 0, 0, 0, 0 };
+int highs[NUM_LEDS] = { 0, 0, 0, 0 };
 
 /*
   The setup function runs once when you press reset or power the board
@@ -65,15 +67,40 @@ void loop() {
     sei();
     // Serial.write(255); // send a start byte
     // Serial.write(fft_log_out, 128); // send out the data
-    for (int i = 0; i < FFT_N; i++) {
-      Serial.print(fft_log_out[i]);
-      Serial.print(" : ");
+    // for (int i = 0; i < FFT_N; i++) {
+    //   Serial.print(fft_log_out[i]);
+    //   Serial.print(" : ");
+    // }
+    // Serial.println("");
+
+    int sum = 0;
+    int min = 32767;
+    int max = -32768;
+    for (int i = 0; i < NUM_LEDS; i++) {
+      int val = fft_log_out[4 + i];
+      sum += val;
+      min = min(min, val);
+      max = max(max, val);
     }
-    Serial.println("");
+    float avg = sum / NUM_LEDS;
 
     for (int i = 0; i < NUM_LEDS; i++) {
-      analogWrite(pins[i], fft_log_out[4 + i]);
+      float val = fft_log_out[4 + i];
+      lows[i] = min(lows[i], val);
+      if (lows[i] == 0) {
+        lows[i] = val;
+      }
+      highs[i] = max(highs[i], val);
+      Serial.print(lows[i]);
+      Serial.print(":");
+      Serial.print(val);
+      Serial.print(":");
+      Serial.print(highs[i]);
+      Serial.print("      ");
+      // analogWrite(pins[i], 64 * (val - lows[i]) / (highs[i] - lows[i]));
+      analogWrite(pins[i], 32 * (val - min) / (max - min));
     }
+    Serial.println("");
   }
 
   // int vol = analogRead(MIC_PIN);
