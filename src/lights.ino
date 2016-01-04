@@ -22,7 +22,9 @@ int pins[NUM_LEDS] = { 5, 6, 9, 10 };
 
 uint8_t fft_buffer[MOVING_AVG_ORDER][FFT_N/2];
 int current_index = 0;
-float moving_avgs[FFT_N/2];
+float moving_avgs[FFT_N/2]; // The moving averages of the FFT spectrum.
+float lows[FFT_N/2]; // The lows of the last samples for all bins.
+float highs[FFT_N/2]; // The highs of the last samples for all bins.
 
 /*
   The setup function runs once when you press reset or power the board.
@@ -71,6 +73,19 @@ void loop() {
     fft_mag_log(); // take the output of the fft
     sei();
 
+    // Calculate lows and highs.
+
+    // For each bin.
+    for (int i = 0; i < FFT_N/2; i++) {
+      lows[i] = fft_log_out[i];
+      highs[i] = fft_log_out[i];
+
+      for (int j = 0; j < MOVING_AVG_ORDER; j++) {
+        lows[i] = min(lows[i], fft_buffer[j][i]);
+        highs[i] = max(highs[i], fft_buffer[j][i]);
+      }
+    }
+
     // Calculate moving averages.
 
     float b = 1 / (MOVING_AVG_ORDER + 1.0); // Filter coefficient.
@@ -79,6 +94,7 @@ void loop() {
     for (int i = 0; i < FFT_N/2; i++) {
       // Calculate output.
       moving_avgs[i] = b * fft_log_out[i];
+
       for (int j = 0; j < MOVING_AVG_ORDER; j++) {
         moving_avgs[i] += b * fft_buffer[j][i];
       }
@@ -92,15 +108,24 @@ void loop() {
     // Update LEDs.
 
     for (int i = 0; i < NUM_LEDS; i++) {
-      float value = fft_log_out[0 + i];
-      float avg = moving_avgs[0 + i];
-      analogWrite(pins[i], abs(avg - value));
+      // Downsample spectrum output to 4 bins.
+      float value = fft_log_out[i*2];
+      float avg = moving_avgs[i*2];
+      float low = lows[i*2];
+      float high = highs[i*2];
 
+      float level = abs(value - avg);
+      analogWrite(pins[i], 10 * level);
+
+      Serial.print(low);
+      Serial.print(" <- ");
       Serial.print(value);
+      Serial.print(" -> ");
+      Serial.print(high);
       Serial.print(" : ");
       Serial.print(avg);
       Serial.print(" (");
-      Serial.print(avg - value);
+      Serial.print(level);
       Serial.print(")");
       Serial.print("\t\t");
     }
