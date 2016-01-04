@@ -3,47 +3,52 @@
 */
 
 // FFT
-#define LOG_OUT 1 // use the log output function
-#define FFT_N 16 // set to 16 point fft
+#define LOG_OUT 1 // Use the log output function.
+#define FFT_N 16 // Set to 16 point FFT.
 
 #include "Arduino.h"
 #include <FFT.h>
 
 /*
   Declarations
-*/
+  */
 
 #define NUM_LEDS 4
 #define MIC_PIN A5
 
+#define MOVING_AVG_ORDER 2
+
 int pins[NUM_LEDS] = { 2, 3, 6, 7 };
-int lows[NUM_LEDS] = { 0, 0, 0, 0 };
-int highs[NUM_LEDS] = { 0, 0, 0, 0 };
+
+uint8_t fft_buffer[MOVING_AVG_ORDER][FFT_N/2];
+int current_index = 0;
+float moving_avgs[FFT_N/2];
 
 /*
-  The setup function runs once when you press reset or power the board
+  The setup function runs once when you press reset or power the board.
   */
 void setup() {
-  // initialize digital pin 13 as an output.
+  // Initialize digital pin 13 as an output.
 
   Serial.begin(9600);
 
-  // Set up LEDs
-  for (int i=0; i < NUM_LEDS; i++) {
+  // Set up LEDs.
+  for (int i = 0; i < NUM_LEDS; i++) {
     pinMode(pins[i], OUTPUT);
   }
 
-  // pinMode(MIC_PIN, INPUT);
+  // Set array holding moving averages to contain arrays of zeros.
+  memset(fft_buffer, 0, sizeof(fft_buffer));
 
   // FFT
-  TIMSK0 = 0; // turn off timer0 for lower jitter
-  ADCSRA = 0xe5; // set the adc to free running mode
-  ADMUX = 0x40; // use adc0
-  DIDR0 = 0x01; // turn off the digital input for adc0
+  TIMSK0 = 0; // Turn off timer0 for lower jitter.
+  ADCSRA = 0xe5; // Set the adc to free running mode.
+  ADMUX = 0x40; // Use adc0.
+  DIDR0 = 0x01; // Turn off the digital input for adc0.
 }
 
 /*
-  The loop function runs over and over again forever
+  The loop function runs over and over again forever.
   */
 void loop() {
   // FFT
@@ -65,52 +70,40 @@ void loop() {
     fft_run(); // process the data in the fft
     fft_mag_log(); // take the output of the fft
     sei();
-    // Serial.write(255); // send a start byte
-    // Serial.write(fft_log_out, 128); // send out the data
-    // for (int i = 0; i < FFT_N; i++) {
-    //   Serial.print(fft_log_out[i]);
-    //   Serial.print(" : ");
-    // }
-    // Serial.println("");
 
-    int sum = 0;
-    int min = 32767;
-    int max = -32768;
-    for (int i = 0; i < NUM_LEDS; i++) {
-      int val = fft_log_out[4 + i];
-      sum += val;
-      min = min(min, val);
-      max = max(max, val);
-    }
-    float avg = sum / NUM_LEDS;
+    // Calculate moving averages.
 
-    for (int i = 0; i < NUM_LEDS; i++) {
-      float val = fft_log_out[4 + i];
-      lows[i] = min(lows[i], val);
-      if (lows[i] == 0) {
-        lows[i] = val;
+    float b = 1 / (MOVING_AVG_ORDER + 1.0); // Filter coefficient.
+
+    // For each bin.
+    for (int i = 0; i < FFT_N/2; i++) {
+      // Calculate output.
+      moving_avgs[i] = b * fft_log_out[i];
+      for (int j = 0; j < MOVING_AVG_ORDER; j++) {
+        moving_avgs[i] += b * fft_buffer[j][i];
       }
-      highs[i] = max(highs[i], val);
-      Serial.print(lows[i]);
-      Serial.print(":");
-      Serial.print(val);
-      Serial.print(":");
-      Serial.print(highs[i]);
-      Serial.print("      ");
-      // analogWrite(pins[i], 64 * (val - lows[i]) / (highs[i] - lows[i]));
-      analogWrite(pins[i], 32 * (val - min) / (max - min));
+
+      // Add new FFT value to buffer.
+      fft_buffer[current_index][i] = fft_log_out[i];
+    }
+
+    current_index = (current_index + 1) % MOVING_AVG_ORDER; // Update the index.
+
+    // Update LEDs.
+
+    for (int i = 0; i < NUM_LEDS; i++) {
+      float value = fft_log_out[0 + i];
+      float avg = moving_avgs[0 + i];
+      analogWrite(pins[i], abs(avg - value));
+
+      Serial.print(value);
+      Serial.print(" : ");
+      Serial.print(avg);
+      Serial.print(" (");
+      Serial.print(avg - value);
+      Serial.print(")");
+      Serial.print("\t\t");
     }
     Serial.println("");
   }
-
-  // int vol = analogRead(MIC_PIN);
-  // Serial.println(vol);
-
-  // for (int i=0; i < NUM_LEDS; i++) {
-  //   Serial.print(pins[i]);
-  //   digitalWrite(pins[i], HIGH);   // turn the LED on (HIGH is the voltage level)
-  //   delay(1000);              // wait for a second
-  //   digitalWrite(pins[i], LOW);    // turn the LED off by making the voltage LOW
-  //   //delay(1000);              // wait for a second
-  // }
 }
