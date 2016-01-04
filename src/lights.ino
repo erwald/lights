@@ -16,9 +16,9 @@
 #define NUM_LEDS 4
 #define MIC_PIN A5
 
-#define MOVING_AVG_ORDER 2
+#define MOVING_AVG_ORDER 8
 
-int pins[NUM_LEDS] = { 2, 3, 6, 7 };
+int pins[NUM_LEDS] = { 5, 6, 9, 10 };
 
 uint8_t fft_buffer[MOVING_AVG_ORDER][FFT_N/2];
 int current_index = 0;
