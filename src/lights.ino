@@ -2,6 +2,8 @@
   Lights.
 */
 
+#define DEBUG 1
+
 // FFT
 #define LOG_OUT 1 // Use the log output function.
 #define FFT_N 16 // Set to 16 point FFT.
@@ -13,12 +15,11 @@
   Declarations
   */
 
-#define NUM_LEDS 4
-#define MIC_PIN A5
+#define NUM_LEDS 2
 
 #define MOVING_AVG_ORDER 8
 
-int pins[NUM_LEDS] = { 5, 6, 9, 10 };
+int pins[NUM_LEDS] = { 5, 10 };
 
 uint8_t fft_buffer[MOVING_AVG_ORDER][FFT_N/2];
 int current_index = 0;
@@ -108,15 +109,24 @@ void loop() {
     // Update LEDs.
 
     for (int i = 0; i < NUM_LEDS; i++) {
-      // Downsample spectrum output to 4 bins.
-      float value = fft_log_out[i*2];
-      float avg = moving_avgs[i*2];
-      float low = lows[i*2];
-      float high = highs[i*2];
+      // Downsample spectrum output to 2 bins.
+      int scale_factor = FFT_N/2 / NUM_LEDS;
+      float value, avg, low, high = 0;
+      for (int j = 0; j < scale_factor; j++) {
+        value += fft_log_out[i*scale_factor + j];
+        avg += moving_avgs[i*scale_factor + j];
+        low += lows[i*scale_factor + j];
+        high += highs[i*scale_factor + j];
+      }
+      value = value / (float)scale_factor;
+      avg = avg / (float)scale_factor;
+      low = low / (float)scale_factor;
+      high = high / (float)scale_factor;
 
-      float level = abs(value - avg);
+      float level = max(value - avg, 0);
       analogWrite(pins[i], 10 * level);
 
+      #ifdef DEBUG
       Serial.print(low);
       Serial.print(" <- ");
       Serial.print(value);
@@ -128,7 +138,10 @@ void loop() {
       Serial.print(level);
       Serial.print(")");
       Serial.print("\t\t");
+      #endif
     }
+    #ifdef DEBUG
     Serial.println("");
+    #endif
   }
 }
