@@ -17,18 +17,24 @@
   */
 
 #define NUM_LEDS 2
-#define BINS_PER_LED 4
+#define BINS_PER_LED 2
 
 #define MOVING_AVG_ORDER 8
+#define LEVEL_MOVING_AVG_ORDER 3
+
+#define LEVEL_CUTOFF 0.2 // All level outputs below this are set to 0.
 
 int pins[NUM_LEDS] = { 5, 10 };
-int pin_fft_map[NUM_LEDS][BINS_PER_LED] = { {0, 1, 2, 3} , {4, 5, 6, 7} };
+int pin_fft_map[NUM_LEDS][BINS_PER_LED] = { {0, 1} , {2, 3} };
 
 uint8_t fft_buffer[MOVING_AVG_ORDER][FHT_N];
 int current_index = 0;
 float moving_avgs[FHT_N]; // The moving averages of the FFT spectrum.
 float lows[FHT_N]; // The lows of the last samples for all bins.
 float highs[FHT_N]; // The highs of the last samples for all bins.
+
+float level_buffer[LEVEL_MOVING_AVG_ORDER];
+int current_level_index = 0;
 
 // FilterOnePole highPassFilter( HIGHPASS, 10000 ); // A high pass filter at 20 hz.
 
@@ -47,6 +53,9 @@ void setup() {
 
   // Set array holding moving averages to contain arrays of zeros.
   memset(fft_buffer, 0, sizeof(fft_buffer));
+
+  // Set array holding levels to contain zeros.
+  memset(level_buffer, 0, sizeof(level_buffer));
 
   // FHT
   TIMSK0 = 0; // Turn off timer0 for lower jitter.
@@ -98,7 +107,7 @@ void loop() {
 
     // For each bin.
     for (int i = 0; i < FHT_N; i++) {
-      // Calculate output.
+      // Calculate moving average.
       moving_avgs[i] = b * fht_log_out[i];
 
       for (int j = 0; j < MOVING_AVG_ORDER; j++) {
@@ -135,7 +144,30 @@ void loop() {
       low = low / (float)scale_factor;
       high = high / (float)scale_factor;
 
+      // Dampen declines in level (but not increases).
+      int n = LEVEL_MOVING_AVG_ORDER + 1;
       float level = max(value - avg, 0);
+      if (level < LEVEL_CUTOFF) level = 0;
+
+      int previous_idx = current_level_index - 1;
+      if (previous_idx < 0) previous_idx += LEVEL_MOVING_AVG_ORDER;
+      float previous_level = level_buffer[previous_idx];
+
+      if (level < previous_level) {
+        for (int j = 0; j < LEVEL_MOVING_AVG_ORDER; j++) {
+          int idx = (-1 * j + current_level_index);
+          if (idx < 0) idx += LEVEL_MOVING_AVG_ORDER;
+          level += (n - j) * level_buffer[idx];
+        }
+
+        float denom = ( (n * (n + 1)) / 2.0 );
+        level = level / denom;
+      }
+
+      // Add level to buffer.
+      level_buffer[current_level_index] = level;
+      current_level_index = (current_level_index + 1) % LEVEL_MOVING_AVG_ORDER;
+
       analogWrite(pins[i], 100 * level);
 
       #ifdef DEBUG
