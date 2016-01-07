@@ -20,23 +20,25 @@ void loop() {
         ADCSRA = 0xf5; // restart adc
         byte m = ADCL; // fetch adc data
         byte j = ADCH;
-        int k = (j << 8) | m; // form into an int
-        k -= 0x0200; // form into a signed int
-        k <<= 6; // form into a 16b signed int
+        int k = (j << 8) | m; // form into an int, 512/256 | m
+          // 512 or 256 | m = 
+        k -= 0x0200; // form into a signed int, -= 512
+        // k <<= 6; // form into a 16b signed int, k = k * 64
      
         int val = (int)k;
+        Serial.println(m);
         mn = min(mn, val);
         mx = max(mx, val);
     }
  
     // Send min, max and delta over Serial
-    Serial.print("m=");
+    /*Serial.print("m=");
     Serial.print(mn);
     Serial.print(" M=");
     Serial.print(mx);
     Serial.print(" D=");
     Serial.print(mx-mn);
-    Serial.println();
+    Serial.println();*/
 
     
     //sei();
