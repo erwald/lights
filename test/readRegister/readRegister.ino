@@ -32,16 +32,10 @@ void loop() {
      int k = (j << 8) | m; // form into an int
      k -= 0x0200; // form into a signed int
      k <<= 6; // form into a 16b signed int
-     Serial.println(k);
+     Serial.write(m);
      //fht_input[i] = k; // put real data into bins
    }
-   //fht_window(); // window the data for better frequency response
-   //fht_reorder(); // reorder the data before doing the fht
-   //fht_run(); // process the data in the fht
-   //fht_mag_log(); // take the output of the fht
    sei();
-   //Serial.write(255); // send a start byte
-   //Serial.write(fht_log_out, FHT_N/2); // send out the data
  }
 }
 
