@@ -1,17 +1,9 @@
 /*
-   2 fht_adc.pde
-   3 guest openmusiclabs.com 9.5.12
-   4 example sketch for testing the fht library.
-   5 it takes in data on ADC0 (Analog0) and processes them
-   6 with the fht. the data is sent out over the serial
-   7 port at 115.2kb.  there is a pure data patch for
-   8 visualizing the data.
-   9 */
+ * Sends adc data to serial
+ */
  
 //#define LOG_OUT 1 // use the log output function
 #define FHT_N 16 // set to 256 point fht
-
- //#include <FHT.h> // include the library
 
 void setup() {
  Serial.begin(115200); // use the serial port
@@ -33,7 +25,6 @@ void loop() {
      k -= 0x0200; // form into a signed int
      k <<= 6; // form into a 16b signed int
      Serial.write(m);
-     //fht_input[i] = k; // put real data into bins
    }
    sei();
  }

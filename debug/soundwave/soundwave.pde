@@ -5,6 +5,7 @@
 import processing.serial.*;
 
 Serial serial;
+byte[] serialBuffer;
 
 // Constants
 final int BUFFER_SIZE = 640;
@@ -14,6 +15,8 @@ float[] data;
 int dataCursor;
 float lastX, lastY;
 
+boolean connected = false;
+
 void setup() {
   size(640, 360, OPENGL);
   stroke(255);
@@ -22,6 +25,9 @@ void setup() {
   printArray(Serial.list());
   String portName = Serial.list()[2];
   serial = new Serial(this, portName, 115200);
+
+  serialBuffer = new byte[2];
+  serial.buffer(2);
 
   // init values
   data = new float[BUFFER_SIZE];
@@ -35,32 +41,42 @@ void setup() {
 
 void draw() {
 
-  if ( serial.available() > 0) {  // If data is available,
-    int val = serial.read();
+  /*while ( serial.available() > 0) {  // If data is available,
+    byte[] val = new byte[2];
+    serial.readBytesUntil(255, val);
+    print("1:" + val[0] + ",");
+    print("2:" + val[1]);
 
      //add it to buffer
-    data[dataCursor] = (float)val;
+    //data[dataCursor] = (float)val;
 
     // increment cursor
-    dataCursor = (dataCursor + 1) % BUFFER_SIZE;
+    //dataCursor = (dataCursor + 1) % BUFFER_SIZE;
 
-    println(val);
   }
+  println("end");*/
 
   background(0);
 
-  //draw buffer
-  for (int i=1;i<BUFFER_SIZE;i++) {
+  // //draw buffer
+  // for (int i=1;i<BUFFER_SIZE;i++) {
 
-    int last = (dataCursor + i) % BUFFER_SIZE;
-    int next = (last + 1) % BUFFER_SIZE;
+  //   int last = (dataCursor + i) % BUFFER_SIZE;
+  //   int next = (last + 1) % BUFFER_SIZE;
 
-    line(
-      (float)i / BUFFER_SIZE * width,
-      height - data[last] / MAX_VALUE * height,
-      (float)(i-1) / BUFFER_SIZE * width,
-      height - data[next] / MAX_VALUE * height
-    );
-  }
+  //   line(
+  //     (float)i / BUFFER_SIZE * width,
+  //     height - data[last] / MAX_VALUE * height,
+  //     (float)(i-1) / BUFFER_SIZE * width,
+  //     height - data[next] / MAX_VALUE * height
+  //   );
+  // }
 
 }
+  void serialEvent(Serial myPort) {
+    serialBuffer = serial.readBytes();
+
+    print("1:" + serialBuffer[0] + ",");
+    println("2:" + serialBuffer[1]);
+
+  }
